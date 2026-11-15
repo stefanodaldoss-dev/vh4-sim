@@ -1,0 +1,8 @@
+build/
+*.wav
+*.npy
+offline
+bench*
+mb
+stress
+gmon.out
