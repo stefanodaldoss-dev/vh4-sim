@@ -1,0 +1,29 @@
+name: build
+on:
+  push:
+  workflow_dispatch:
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { arch: x64,   os: windows-latest }
+          - { arch: ARM64, os: windows-11-arm }
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Configura
+        run: cmake -S . -B build -A ${{ matrix.arch }}
+      - name: Compila
+        run: cmake --build build --config Release --parallel
+      - name: Impacchetta
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force -Path out | Out-Null
+          Copy-Item "build/VH4Sim_artefacts/Release/VH4 Sim.exe" "out/"
+          Compress-Archive -Path out/* -DestinationPath VH4Sim-${{ matrix.arch }}.zip
+      - uses: actions/upload-artifact@v4
+        with:
+          name: VH4Sim-${{ matrix.arch }}
+          path: VH4Sim-${{ matrix.arch }}.zip
