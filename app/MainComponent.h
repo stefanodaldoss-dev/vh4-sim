@@ -1,5 +1,6 @@
 #pragma once
 #include <juce_audio_utils/juce_audio_utils.h>
+#include <juce_dsp/juce_dsp.h>
 #include "AmpProcessor.h"
 
 // Manopola semplice in stile pannello scuro
@@ -33,6 +34,8 @@ private:
     void makeKnob(Knob& k, const juce::String& name, double def);
     void pushParams();           // legge i controlli e li manda al motore
     void selectChannel(int ch);
+    void applyPreset(int idx);
+    void loadIR(const juce::File& f);
     void saveState(); void loadState();
     void showAudioSettings();
     juce::File stateFile() const;
@@ -42,13 +45,17 @@ private:
     // per canale: gain, bass, mid, treble, volume
     double chan[5][5];
     int channel = 3; bool bright = false;
-    Knob kGain, kBass, kMid, kTreble, kVol, kMaster, kPres, kDeep, kOut, kTrim;
+    Knob kGain, kBass, kMid, kTreble, kVol, kMaster, kPres, kDeep, kGate, kOut, kTrim;
     juce::TextButton chBtn[4]; juce::ToggleButton brightBtn{"Bright"};
-    juce::ComboBox quality, inputSel; juce::TextButton audioBtn{"Impostazioni audio..."};
-    juce::Label info, hint;
-    float inLevel = 0, outLevel = 0; double sampleRateNow = 48000; int bufferNow = 0;
+    juce::ComboBox quality, inputSel, presetSel, cabSel;
+    juce::TextButton audioBtn{"Impostazioni audio..."}, irBtn{"Carica IR cabina..."};
+    juce::Label info, hint, irName;
+    float inLevel = 0, outLevel = 0, inHold = 0, outHold = 0; double sampleRateNow = 48000; int bufferNow = 0;
     bool loading = false;
     std::unique_ptr<juce::XmlElement> savedDeviceState; juce::HeapBlock<float> scratch; int scratchSize = 0;
+    // cabina a risposta all'impulso (opzionale)
+    juce::dsp::Convolution conv; std::atomic<bool> irActive{false}; juce::File irFile; bool irLoaded = false; int maxBlock = 4096;
+    std::unique_ptr<juce::FileChooser> chooser; juce::File savedIr; int savedCab = 1;
     std::unique_ptr<juce::DialogWindow> dlg;
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(MainComponent)
 };

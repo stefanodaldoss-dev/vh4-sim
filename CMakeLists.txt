@@ -11,7 +11,7 @@ juce_add_gui_app(VH4Sim PRODUCT_NAME "VH4 Sim" COMPANY_NAME "Personale" VERSION 
 target_sources(VH4Sim PRIVATE app/Main.cpp app/MainComponent.cpp app/MainComponent.h app/AmpProcessor.h dsp/vh4dsp.hpp)
 target_compile_definitions(VH4Sim PRIVATE
     JUCE_WEB_BROWSER=0 JUCE_USE_CURL=0 JUCE_APPLICATION_NAME_STRING="VH4 Sim" JUCE_APPLICATION_VERSION_STRING="${PROJECT_VERSION}")
-target_link_libraries(VH4Sim PRIVATE juce::juce_audio_utils juce::juce_recommended_config_flags)
+target_link_libraries(VH4Sim PRIVATE juce::juce_audio_utils juce::juce_dsp juce::juce_recommended_config_flags)
 if(MSVC)
     target_compile_options(VH4Sim PRIVATE /fp:fast /O2)
 endif()

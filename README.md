@@ -23,3 +23,12 @@ Simulatore di testata a valvole (4 canali, power amp, cabina) per chitarra. App 
    poi riduci il buffer finche' il suono non scatta. La latenza stimata appare in basso.
 2. Ingresso: chitarra sull'ingresso 1. Parti con INPUT al centro e MASTER a 5, volume basso.
 3. Le impostazioni si salvano da sole.
+
+## Novita' della versione 0.2
+- Livelli: il canale 1 (pulito) e' ora compensato (+10 dB) e il suo preset parte da gain 8 / volume 8. Prima con gain 3 usciva 35-65 dB piu' piano degli altri.
+- GATE: manopola nella fila in basso (0 = spento). Taglia il soffio della scheda quando non suoni. Parti da circa -70 dB e alzalo finche' il fruscio sparisce nelle pause.
+- Indicatori in dB con picco: i colpi forti sulla chitarra dovrebbero stare a circa -12 dB all'ingresso.
+- Preset: Pulito, Crunch, Lead, Lead 2 e due "stile Jones" (da impostazioni lette in forum, non verificate).
+- Cabina da file IR: pulsante "Carica IR cabina...". Serve un file .wav di risposta all'impulso di una cassa (es. 4x12 con V30).
+  Una raccolta gratuita e' la "IR Cab Library" di Origin Effects (origineffects.com/product/ir-cab-library/): controlla la licenza nella pagina di download.
+  Cerca ad esempio i file della "4x12 Bogner V30" o della "Marshall 1960B".
