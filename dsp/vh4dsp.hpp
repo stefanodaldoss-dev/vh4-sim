@@ -525,6 +525,8 @@ private:
 struct AmpParams {
     int channel = 3; double gain = 0.6, bass = 0.55, mid = 0.5, treble = 0.6, volume = 0.5, master = 0.5, presence = 0.5, deep = 0.85;
     bool bright = false; double inputTrimDb = 0.0, outputDb = 0.0;
+    double gate = -100.0;       // noise gate threshold, dBFS of the guitar input (<= -90 means off)
+    bool cabinet = true;        // false: internal cabinet bypassed (an external IR is used)
 };
 
 struct AmpConfig {            // everything that depends on the knobs; built off the audio thread
@@ -540,6 +542,7 @@ public:
         if (osf >= 4) rs2.design(15, 7.0);
         pre.prepare(fs); pa.prepare(fs); cab.prepare(sr);
         smoothK = 1.0 - std::exp(-1.0 / (0.02 * sr));
+        envRel = 1.0 - std::exp(-1.0 / (0.02 * sr)); envAtk = 1.0 - std::exp(-1.0 / (0.001 * sr)); gAtk = 1.0 - std::exp(-1.0 / (0.0005 * sr)); gRel = 1.0 - std::exp(-1.0 / (0.06 * sr)); holdN = int(0.05 * sr);
         setParams(AmpParams()); mg = ownCfg.masterGain; og = ownCfg.outGain; ig = ownCfg.inGain;
     }
     std::unique_ptr<AmpConfig> makeConfig(const AmpParams& p) const {
@@ -547,14 +550,15 @@ public:
     }
     void applyConfig(const AmpConfig& c) {            // cheap, safe on the audio thread
         pre.apply(c.pre); pa.setControls(c.p.presence, c.p.deep);
-        tMg = c.masterGain; tIg = c.inGain; tOg = c.outGain;
+        tMg = c.masterGain; tIg = c.inGain; tOg = c.outGain; cabOn = c.p.cabinet;
+        gThr = (c.p.gate <= -90.0) ? 0.0 : std::pow(10.0, c.p.gate / 20.0);
     }
     void setParams(const AmpParams& p) { fill(ownCfg, p); applyConfig(ownCfg); }
     // x: guitar signal, full scale = 1 V. Mono in, mono out.
     inline double process(double x) {
         mg += (tMg - mg) * smoothK; ig += (tIg - ig) * smoothK; og += (tOg - og) * smoothK;
         masterGain = mg;
-        double in = x * ig, out;
+        double in = gateProcess(x) * ig, out;
         if (osf == 1) out = chain(in);
         else {
             double a[2], b[4], o[4], o2[2];
@@ -567,22 +571,32 @@ public:
                 out = rs1.downsample(d);
             }
         }
-        return cab.process(out) * og;
+        return (cabOn ? cab.process(out) : out) * og;
     }
     double supply() const { return pa.supply(); }
     double latencySeconds() const { return osf >= 2 ? (rs1.up.delay() / (2.0 * sr) + rs1.dn.delay() / (2.0 * sr)) : 0.0; }
     static constexpr double kDiv = 4.7e3 / (100e3 + 4.7e3), kCal = 0.272;
     static constexpr double kOutScale = 1.0 / 150.0;     // about -10 dBFS rms at master 5
+    // level compensation per channel (dB), measured so that the default knobs give about the same loudness
+    static double chanTrimDb(int ch) { static const double t[5] = {0.0, 10.0, 1.0, 0.0, 0.0}; return t[ch < 1 ? 1 : (ch > 4 ? 4 : ch)]; }
 private:
     void fill(AmpConfig& c, const AmpParams& p) const {
         c.p = p;
         PreampControls pc; pc.channel = p.channel; pc.gain = p.gain; pc.bass = p.bass; pc.mid = p.mid; pc.treble = p.treble; pc.vol = p.volume; pc.bright = p.bright;
         pre.buildConfig(pc, c.pre);
         c.masterGain = taperLog(p.master) * kDiv * kCal;
-        c.inGain = std::pow(10.0, p.inputTrimDb / 20.0); c.outGain = kOutScale * std::pow(10.0, p.outputDb / 20.0);
+        c.inGain = std::pow(10.0, p.inputTrimDb / 20.0); c.outGain = kOutScale * std::pow(10.0, (p.outputDb + chanTrimDb(p.channel)) / 20.0);
     }
     inline double chain(double v) { return pa.process(pre.process(v) * masterGain); }
-    double sr = 48000, fs = 192000, masterGain = 0.1, mg = 0.1, ig = 1, og = 1, tMg = 0.1, tIg = 1, tOg = 1, smoothK = 0.001; int osf = 4;
+    inline double gateProcess(double x) {
+        if (gThr <= 0.0) { gGain = 1.0; return x; }
+        double a = std::fabs(x); env += (a - env) * (a > env ? envAtk : envRel);
+        if (env > gThr) { gOpen = true; hold = holdN; } else if (hold > 0) hold--; else if (env < gThr * 0.7) gOpen = false;
+        gGain += ((gOpen ? 1.0 : 0.0) - gGain) * (gOpen ? gAtk : gRel);
+        return x * gGain;
+    }
+    double sr = 48000, fs = 192000, masterGain = 0.1, mg = 0.1, ig = 1, og = 1, tMg = 0.1, tIg = 1, tOg = 1, smoothK = 0.001;
+    double gThr = 0, env = 0, envRel = 0.01, envAtk = 0.02, gAtk = 0.1, gRel = 0.001, gGain = 1; bool gOpen = false, cabOn = true; int hold = 0, holdN = 2400; int osf = 4;
     Preamp pre; PowerAmp pa; Cabinet cab; Resampler2x rs1, rs2; AmpConfig ownCfg;
 };
 
